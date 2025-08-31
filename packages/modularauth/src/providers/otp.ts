@@ -1,5 +1,10 @@
 import { generateUnbiasedDigits, timingSafeCompare } from "../utils/random.js"
 import { Storage } from "../storage/index.js"
+import {
+  MissingParameterError,
+  InvalidGrantError,
+  oauthErrorResponse,
+} from "../core/errors.js"
 import type {
   StorageAdapter,
   Provider,
@@ -160,12 +165,7 @@ export class OTPProvider
       if (action === "request") {
         const email = formData.get("email")?.toString()
         if (!email) {
-          return this.createResponse(
-            {
-              error: { type: "invalid_claim", key: "email", value: "" },
-            },
-            400,
-          )
+          return oauthErrorResponse(new MissingParameterError("email"))
         }
 
         // Check rate limiting - existing verification within 1 minute
@@ -223,12 +223,16 @@ export class OTPProvider
     const submittedCode = formData.get("code")?.toString()
     const email = formData.get("email")?.toString()
 
-    if (!submittedCode || !email) {
-      return this.createResponse({ error: "missing_parameters" }, 400)
+    if (!submittedCode) {
+      return oauthErrorResponse(new MissingParameterError("code"))
+    }
+
+    if (!email) {
+      return oauthErrorResponse(new MissingParameterError("email"))
     }
 
     if (!authCode) {
-      return this.createResponse({ error: "missing_authorization_code" }, 400)
+      return oauthErrorResponse(new InvalidGrantError("Missing authorization code"))
     }
 
     // Get stored verification
@@ -306,7 +310,7 @@ export class OTPProvider
     )
 
     if (!authState) {
-      return this.createResponse({ error: "invalid_authorization_state" }, 400)
+      return oauthErrorResponse(new InvalidGrantError("Invalid authorization state"))
     }
 
     /**

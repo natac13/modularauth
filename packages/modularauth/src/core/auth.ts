@@ -10,6 +10,14 @@ import type {
 import type { StandardSchemaV1 } from "@standard-schema/spec"
 import { Storage } from "../storage/index.js"
 import { signingKeys, currentSigningKey } from "./keys.js"
+import {
+  MissingParameterError,
+  MissingProviderError,
+  UnsupportedResponseTypeError,
+  UnsupportedGrantTypeError,
+  InvalidGrantError,
+  oauthErrorResponse,
+} from "./errors.js"
 import * as jose from "jose"
 
 export class ModularAuth<
@@ -211,33 +219,15 @@ export class ModularAuth<
 
     // Validate required parameters
     if (!provider || !this.config.providers[provider]) {
-      return new Response(
-        JSON.stringify({
-          error: "invalid_request",
-          error_description: "Invalid or missing provider",
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      )
+      return oauthErrorResponse(new MissingProviderError())
     }
 
     if (!redirectUri) {
-      return new Response(
-        JSON.stringify({
-          error: "invalid_request",
-          error_description: "Missing redirect_uri",
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      )
+      return oauthErrorResponse(new MissingParameterError("redirect_uri"))
     }
 
     if (!responseType || responseType !== "code") {
-      return new Response(
-        JSON.stringify({
-          error: "unsupported_response_type",
-          error_description: "Only 'code' response type is supported",
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      )
+      return oauthErrorResponse(new UnsupportedResponseTypeError(responseType || undefined))
     }
 
     // Generate authorization code
@@ -294,7 +284,7 @@ export class ModularAuth<
       const redirectUri = form.get("redirect_uri")?.toString()
 
       if (!code) {
-        return this.oauthError("invalid_request", "Missing authorization code")
+        return oauthErrorResponse(new MissingParameterError("code"))
       }
 
       // Single lookup following OpenAuth pattern
@@ -309,22 +299,19 @@ export class ModularAuth<
       }>(this.config.storage, ["oauth:code", code])
 
       if (!sessionData) {
-        return this.oauthError(
-          "invalid_grant",
-          "Invalid or expired authorization code",
-        )
+        return oauthErrorResponse(new InvalidGrantError("Invalid or expired authorization code"))
       }
 
       // Validate redirect_uri matches (CRITICAL security check)
       if (redirectUri && redirectUri !== sessionData.redirectURI) {
-        return this.oauthError("invalid_grant", "Redirect URI mismatch")
+        return oauthErrorResponse(new InvalidGrantError("Redirect URI mismatch"))
       }
 
       // Age validation
       const maxAge = 60 * 1000 // 60 seconds like OpenAuth
       if (Date.now() - sessionData.timestamp > maxAge) {
         await Storage.remove(this.config.storage, ["oauth:code", code])
-        return this.oauthError("invalid_grant", "Authorization code expired")
+        return oauthErrorResponse(new InvalidGrantError("Authorization code expired"))
       }
 
       /**
@@ -369,20 +356,14 @@ export class ModularAuth<
       return this.handleRefreshToken(form)
     }
 
-    return this.oauthError(
-      "unsupported_grant_type",
-      `Grant type '${grantType}' is not supported`,
-    )
+    return oauthErrorResponse(new UnsupportedGrantTypeError(grantType?.toString()))
   }
 
   private async handleRefreshToken(form: FormData): Promise<Response> {
     const refreshToken = form.get("refresh_token")?.toString()
 
     if (!refreshToken) {
-      return new Response(JSON.stringify({ error: "invalid_request" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return oauthErrorResponse(new MissingParameterError("refresh_token"))
     }
 
     // Get stored refresh token data
@@ -392,10 +373,7 @@ export class ModularAuth<
     )
 
     if (!tokenData) {
-      return new Response(JSON.stringify({ error: "invalid_grant" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return oauthErrorResponse(new InvalidGrantError("Invalid refresh token"))
     }
 
     // Call onRefresh if provided
@@ -413,22 +391,6 @@ export class ModularAuth<
     })
   }
 
-  private oauthError(
-    error: string,
-    description?: string,
-    status = 400,
-  ): Response {
-    return new Response(
-      JSON.stringify({
-        error,
-        error_description: description,
-      }),
-      {
-        status,
-        headers: { "Content-Type": "application/json" },
-      },
-    )
-  }
 
   /**
    * Issues JWT access and refresh tokens for a subject.
