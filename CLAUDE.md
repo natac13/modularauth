@@ -34,6 +34,7 @@
 ## Implementation Strategy
 
 **"Boring" Approach**: Copy OpenAuth's proven patterns exactly where possible
+
 - **Copy line-by-line**: Key management, storage patterns, crypto utilities, OAuth flows
 - **Same dependencies**: Use `aws4fetch`, `jose`, same algorithms (ES256)
 - **Same interfaces**: `StorageAdapter`, error types, JWT structure
@@ -55,4 +56,4 @@
 - **test critical paths** not implementation details
 - **focus on security** and OAuth compliance over convenience features
 
-Keep in mind the `@IMPLEMENTATION.md` plan and `@ARCHITECTURE_PLAN.md` plan. As well as `@plans/`
+Keep in mind the `IMPLEMENTATION.md` plan and `ARCHITECTURE_PLAN.md` plan. As well as `plans/` folder.
