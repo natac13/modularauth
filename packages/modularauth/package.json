@@ -10,9 +10,9 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./providers/email-otp": {
-      "import": "./dist/providers/email-otp.js",
-      "types": "./dist/providers/email-otp.d.ts"
+    "./providers/*": {
+      "import": "./dist/providers/*.js",
+      "types": "./dist/providers/*.d.ts"
     }
   },
   "scripts": {

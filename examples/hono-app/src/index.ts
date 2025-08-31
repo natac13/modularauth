@@ -12,7 +12,7 @@ const subjects = {
     userId: string(),
     email: string(),
     name: optional(string()),
-  })
+  }),
 } as const
 
 // Create Hono app
@@ -36,7 +36,7 @@ const auth = createAuth({
       async sendCode(claims, code) {
         // For testing, write to a JSON file
         const codesFile = "./test-codes.json"
-        let codes = {}
+        let codes: Record<string, string> = {}
         try {
           const existing = await fs.readFile(codesFile, "utf-8")
           codes = JSON.parse(existing)
@@ -56,7 +56,7 @@ const auth = createAuth({
     access: 600, // 10 minutes
     refresh: 2592000, // 30 days
   },
-  
+
   async onSuccess(ctx, provider, data) {
     // Handle OTP provider response
     if (provider === "otp" && data.claims) {
@@ -67,23 +67,23 @@ const auth = createAuth({
         name: undefined,
       })
     }
-    
+
     // Default handling for other providers
     const userId = data.id || crypto.randomUUID()
-    
+
     return ctx.subject("user", userId, {
       userId,
       email: data.email || `${userId}@example.com`,
       name: data.name,
     })
   },
-  
+
   async onRefresh(subject) {
     // For testing, just return the same subject
     console.log("Refreshing token for:", subject)
     return subject
   },
-  
+
   async userInfo(subject) {
     return {
       sub: subject.properties.userId,
@@ -106,7 +106,7 @@ app.get("/", (c) => {
       auth: "/api/auth",
       discovery: "/api/auth/.well-known/openid-configuration",
       jwks: "/api/auth/.well-known/jwks.json",
-    }
+    },
   })
 })
 
@@ -117,7 +117,9 @@ app.get("/health", (c) => {
 
 const port = process.env.PORT || 3000
 console.log(`🚀 ModularAuth server running on http://localhost:${port}`)
-console.log(`📚 OpenID Discovery: http://localhost:${port}/api/auth/.well-known/openid-configuration`)
+console.log(
+  `📚 OpenID Discovery: http://localhost:${port}/api/auth/.well-known/openid-configuration`,
+)
 
 export default {
   port,
