@@ -1,6 +1,16 @@
 export { createAuth, ModularAuth } from "./core/auth.js"
-export { MemoryStorage } from "./storage/memory.js"
-export { Storage } from "./storage/index.js"
+export { 
+  MemoryStorage,
+  DynamoStorage,
+  RedisStorage,
+  UpstashStorage,
+  Storage 
+} from "./storage/index.js"
+export type { 
+  DynamoStorageOptions,
+  RedisStorageOptions,
+  RedisClient 
+} from "./storage/index.js"
 export {
   OauthError,
   MissingParameterError,

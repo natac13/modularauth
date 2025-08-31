@@ -14,7 +14,7 @@ export namespace Storage {
   function encode(key: string[]) {
     return key.map((k) => k.replaceAll(SEPARATOR, ""))
   }
-  
+
   export function get<T>(adapter: StorageAdapter, key: string[]) {
     return adapter.get(encode(key)) as Promise<T | undefined>
   }
@@ -40,3 +40,8 @@ export namespace Storage {
     return adapter.scan(encode(key))
   }
 }
+
+// Export storage implementations
+export { MemoryStorage } from "./memory.js"
+export { DynamoStorage } from "./dynamodb.js"
+export type { DynamoStorageOptions } from "./dynamodb.js"
