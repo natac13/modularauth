@@ -36,6 +36,10 @@ export class ModularAuth<
       return this.handleDiscovery()
     }
     
+    if (path === "/.well-known/oauth-authorization-server") {
+      return this.handleOAuth2Discovery()
+    }
+    
     // Handle OAuth endpoints
     if (path === "/authorize" && request.method === "GET") {
       return this.handleAuthorize(request)
@@ -87,10 +91,33 @@ export class ModularAuth<
         jwks_uri: `${this.config.issuer}/.well-known/jwks.json`,
         response_types_supported: ["code"],
         subject_types_supported: ["public"],
-        id_token_signing_alg_values_supported: ["RS256"],
+        id_token_signing_alg_values_supported: ["ES256"],
         scopes_supported: ["openid", "email", "profile"],
         token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
         claims_supported: ["sub", "email", "name", "picture"],
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    )
+  }
+
+  private async handleOAuth2Discovery(): Promise<Response> {
+    // OAuth 2.0 Authorization Server Metadata (RFC 8414)
+    // Similar to OIDC discovery but without userinfo endpoint
+    return new Response(
+      JSON.stringify({
+        issuer: this.config.issuer,
+        authorization_endpoint: `${this.config.issuer}/authorize`,
+        token_endpoint: `${this.config.issuer}/token`,
+        jwks_uri: `${this.config.issuer}/.well-known/jwks.json`,
+        response_types_supported: ["code"],
+        grant_types_supported: ["authorization_code", "refresh_token"],
+        token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+        revocation_endpoint: `${this.config.issuer}/revoke`,
+        revocation_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+        code_challenge_methods_supported: ["S256"],
       }),
       {
         status: 200,
@@ -192,7 +219,7 @@ export class ModularAuth<
       sub: (subject as any).properties?.id || "unknown",
       ...subject,
     })
-      .setProtectedHeader({ alg: key.alg, kid: key.id })
+      .setProtectedHeader({ alg: key.alg, kid: key.id, typ: "JWT" })
       .setIssuedAt()
       .setIssuer(this.config.issuer)
       .setExpirationTime(`${this.config.ttl!.access}s`)
