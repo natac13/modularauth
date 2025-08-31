@@ -1,15 +1,39 @@
-import type { StorageAdapter } from "../types.js"
+import type { StorageAdapter } from "../core/types.js"
 import { joinKey, splitKey } from "./index.js"
+import { existsSync, readFileSync } from "node:fs"
+import { writeFile } from "node:fs/promises"
 
 export interface MemoryStorageOptions {
+  /**
+   * Optionally, backup the store to a file. So it'll be persisted when the issuer restarts.
+   * @example
+   * ```ts
+   * {
+   *   persist: "./persist.json"
+   * }
+   * ```
+   */
   persist?: string
 }
 
-export function MemoryStorage(_input?: MemoryStorageOptions): StorageAdapter {
+export function MemoryStorage(input?: MemoryStorageOptions): StorageAdapter {
   const store = [] as [
     string,
     { value: Record<string, any>; expiry?: number },
   ][]
+
+  if (input?.persist) {
+    if (existsSync(input.persist)) {
+      const file = readFileSync(input?.persist)
+      store.push(...JSON.parse(file.toString()))
+    }
+  }
+
+  async function save() {
+    if (!input?.persist) return
+    const file = JSON.stringify(store)
+    await writeFile(input.persist, file)
+  }
 
   function search(key: string) {
     let left = 0
@@ -36,6 +60,7 @@ export function MemoryStorage(_input?: MemoryStorageOptions): StorageAdapter {
       const entry = store[match.index][1]
       if (entry.expiry && Date.now() >= entry.expiry) {
         store.splice(match.index, 1)
+        await save()
         return undefined
       }
       return entry.value
@@ -48,7 +73,7 @@ export function MemoryStorage(_input?: MemoryStorageOptions): StorageAdapter {
         joined,
         {
           value,
-          expiry: expiry ? expiry.getTime() : undefined,
+          expiry: expiry ? expiry.getTime() : expiry,
         },
       ] as (typeof store)[number]
       if (!match.found) {
@@ -56,6 +81,7 @@ export function MemoryStorage(_input?: MemoryStorageOptions): StorageAdapter {
       } else {
         store[match.index] = entry
       }
+      await save()
     },
     
     async remove(key: string[]) {
@@ -63,6 +89,7 @@ export function MemoryStorage(_input?: MemoryStorageOptions): StorageAdapter {
       const match = search(joined)
       if (match.found) {
         store.splice(match.index, 1)
+        await save()
       }
     },
     

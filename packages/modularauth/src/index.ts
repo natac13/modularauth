@@ -1,4 +1,4 @@
-export { createAuth, ModularAuth } from "./auth.js"
+export { createAuth, ModularAuth } from "./core/auth.js"
 export { MemoryStorage } from "./storage/memory.js"
 export { Storage } from "./storage/index.js"
 export type {
@@ -11,4 +11,4 @@ export type {
   SuccessContext,
   JWTPayload,
   TokenResponse,
-} from "./types.js"
+} from "./core/types.js"

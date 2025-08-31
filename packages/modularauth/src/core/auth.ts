@@ -1,14 +1,12 @@
 import type { AuthConfig, InferSubject, Provider, SubjectSchema } from "./types.js"
-import { Storage } from "./storage/index.js"
+import { Storage } from "../storage/index.js"
+import { signingKeys, currentSigningKey } from "./keys.js"
 import * as jose from "jose"
 
 export class ModularAuth<
   TProviders extends Record<string, Provider>,
   TSubjects extends SubjectSchema,
 > {
-  private signingKey?: jose.KeyLike
-  private verificationKey?: jose.KeyLike
-  
   constructor(private config: AuthConfig<TProviders, TSubjects>) {
     // Set default TTLs
     this.config.ttl = {
@@ -62,24 +60,16 @@ export class ModularAuth<
   }
 
   private async handleJWKS(): Promise<Response> {
-    // Get or create signing key
-    if (!this.signingKey) {
-      await this.initializeKeys()
-    }
+    // Get all signing keys from storage
+    // This follows OpenAuth's pattern from issuer.ts
+    const keys = await signingKeys(this.config.storage)
     
-    // Export public key as JWK
-    const publicKey = await jose.exportJWK(this.verificationKey!)
+    // Return all public keys in JWKS format
+    // Include expired keys for verification of old tokens
+    const jwks = keys.map(k => k.jwk)
     
     return new Response(
-      JSON.stringify({
-        keys: [
-          {
-            ...publicKey,
-            use: "sig",
-            kid: "1", // We'll implement rotation later
-          }
-        ]
-      }),
+      JSON.stringify({ keys: jwks }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" }
@@ -192,29 +182,21 @@ export class ModularAuth<
     )
   }
 
-  private async initializeKeys() {
-    // For now, generate a new key pair
-    // Later we'll implement rotation
-    const { publicKey, privateKey } = await jose.generateKeyPair("RS256")
-    this.signingKey = privateKey
-    this.verificationKey = publicKey
-  }
-
   private async issueTokens(subject: InferSubject<TSubjects>) {
-    if (!this.signingKey) {
-      await this.initializeKeys()
-    }
+    // Get the current signing key from storage
+    // This follows OpenAuth's pattern - always use the latest key for signing
+    const key = await currentSigningKey(this.config.storage)
     
     // Create access token
     const accessToken = await new jose.SignJWT({
       sub: (subject as any).properties?.id || "unknown",
       ...subject,
     })
-      .setProtectedHeader({ alg: "RS256", kid: "1" })
+      .setProtectedHeader({ alg: key.alg, kid: key.id })
       .setIssuedAt()
       .setIssuer(this.config.issuer)
       .setExpirationTime(`${this.config.ttl!.access}s`)
-      .sign(this.signingKey!)
+      .sign(key.private)
     
     // Create refresh token (simple random string for now)
     const refreshToken = crypto.randomUUID()

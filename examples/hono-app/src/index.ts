@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { serveStatic } from "hono/bun"
-import { createAuth, MemoryStorage } from "@modularauth/core"
+import { createAuth, MemoryStorage } from "@modularauth/modularauth"
 import { object, string, optional } from "valibot"
 
 // Define user type (will be used when we add providers)

@@ -11,77 +11,7 @@ We're transforming a monolithic Hono server (OpenAuth) into a modular, request/r
 - Context switching for dynamic data like workspaces
 - Full type safety with no `any` types
 
-## Phase 0: Setup and Preparation (Day 1)
-
-### Step 1: Fork and Setup Monorepo
-
-```bash
-# We're already in a fork, so set up the monorepo structure
-mkdir -p packages/{core,providers,client,react,adapters}
-
-# Create base package.json for each package
-for pkg in core providers client react adapters; do
-  cat > packages/$pkg/package.json << EOF
-{
-  "name": "@modularauth/$pkg",
-  "version": "0.0.1",
-  "type": "module",
-  "exports": {
-    ".": {
-      "import": "./dist/esm/index.js",
-      "types": "./dist/types/index.d.ts"
-    },
-    "./*": {
-      "import": "./dist/esm/*.js",
-      "types": "./dist/types/*.d.ts"
-    },
-  },
-}
-EOF
-done
-```
-
-### Step 2: Setup TypeScript Configuration
-
-```typescript
-// tsconfig.base.json at root
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitAny": true  // Critical: No any types!
-  }
-}
-```
-
-### Step 3: Copy OpenAuth Source as Reference
-
-```bash
-# Keep OpenAuth source as reference
-cp -r packages/openauth packages/openauth-original
-
-# We'll extract and refactor from here
-```
-
-### ✅ Phase 0 Checkpoint
-
-- [ ] Monorepo structure created
-- [ ] TypeScript configured with strict mode
-- [ ] OpenAuth source preserved for reference
-
----
-
-## Phase 1: Extract Core Auth Logic (Days 2-3)
+## Phase 1: Extract Core Auth Logic (Days 0-3)
 
 ### Step 1: Create Core Types with Full Generics
 
@@ -139,13 +69,9 @@ export interface AuthConfig<
     data: InferProviderData<TProviders[keyof TProviders]>,
   ): Promise<Subject>
 
-  onRefresh?(
-    subject: InferSubject<TSubjects>,
-  ): Promise<InferSubject<TSubjects>>
+  onRefresh?(subject: InferSubject<TSubjects>): Promise<InferSubject<TSubjects>>
 
-  userInfo?(
-    subject: InferSubject<TSubjects>,
-  ): Promise<OIDCUserInfo>
+  userInfo?(subject: InferSubject<TSubjects>): Promise<OIDCUserInfo>
 
   contextSwitch?: {
     enabled: boolean
@@ -248,10 +174,10 @@ export class TokenHandler extends RequestHandler<AuthConfig> {
     }
 
     // Extract subject from refresh token using OpenAuth's storage pattern
-    const tokenData = await Storage.get(
-      this.config.storage,
-      ['oauth:refresh', refreshToken]
-    )
+    const tokenData = await Storage.get(this.config.storage, [
+      "oauth:refresh",
+      refreshToken,
+    ])
 
     if (!tokenData) {
       return this.jsonResponse({ error: "invalid_grant" }, 400)
@@ -302,10 +228,7 @@ export class ContextSwitchHandler extends RequestHandler<AuthConfig> {
       return this.jsonResponse({ error: "not_implemented" }, 501)
     }
 
-    const newSubject = await this.config.contextSwitch.handler(
-      subject,
-      body,
-    )
+    const newSubject = await this.config.contextSwitch.handler(subject, body)
 
     // Issue new tokens immediately
     const tokens = await this.issueTokens(newSubject)
@@ -387,7 +310,10 @@ describe("ModularAuth", () => {
       providers: {},
       subjects: {},
       onSuccess: async (ctx, provider, data) => {
-        return ctx.subject('user', data.id, { userId: data.id, email: data.email })
+        return ctx.subject("user", data.id, {
+          userId: data.id,
+          email: data.email,
+        })
       },
     })
 
@@ -434,7 +360,11 @@ export interface StorageAdapter {
 }
 
 // Re-export OpenAuth's storage utilities
-export { Storage, joinKey, splitKey } from '../../openauth-original/src/storage/storage'
+export {
+  Storage,
+  joinKey,
+  splitKey,
+} from "../../openauth-original/src/storage/storage"
 ```
 
 ### Step 2: Create Storage Implementations
@@ -442,66 +372,71 @@ export { Storage, joinKey, splitKey } from '../../openauth-original/src/storage/
 ```typescript
 // packages/core/src/storage/memory.ts
 // Use OpenAuth's MemoryStorage directly
-export { MemoryStorage } from '../../openauth-original/src/storage/memory'
+export { MemoryStorage } from "../../openauth-original/src/storage/memory"
 
 // packages/core/src/storage/dynamo.ts
 // Adapt OpenAuth's storage pattern for DynamoDB
-import { DynamoDBClient, GetItemCommand, PutItemCommand, DeleteItemCommand } from "@aws-sdk/client-dynamodb"
-import type { StorageAdapter } from '../storage'
+import {
+  DynamoDBClient,
+  GetItemCommand,
+  PutItemCommand,
+  DeleteItemCommand,
+} from "@aws-sdk/client-dynamodb"
+import type { StorageAdapter } from "../storage"
 
 export class DynamoStorage implements StorageAdapter {
   constructor(
     private client: DynamoDBClient,
-    private tableName: string
+    private tableName: string,
   ) {}
 
   async get(key: string[]): Promise<Record<string, any> | undefined> {
-    const keyString = key.join('#')
+    const keyString = key.join("#")
     const result = await this.client.send(
       new GetItemCommand({
         TableName: this.tableName,
-        Key: { pk: { S: keyString } }
-      })
+        Key: { pk: { S: keyString } },
+      }),
     )
-    
+
     if (!result.Item) return undefined
-    
+
     return JSON.parse(result.Item.data.S!)
   }
 
   async set(key: string[], value: any, expiry?: Date): Promise<void> {
-    const keyString = key.join('#')
+    const keyString = key.join("#")
     const item: any = {
       pk: { S: keyString },
-      data: { S: JSON.stringify(value) }
+      data: { S: JSON.stringify(value) },
     }
-    
+
     if (expiry) {
       item.ttl = { N: String(Math.floor(expiry.getTime() / 1000)) }
     }
-    
+
     await this.client.send(
       new PutItemCommand({
         TableName: this.tableName,
-        Item: item
-      })
+        Item: item,
+      }),
     )
   }
 
   async remove(key: string[]): Promise<void> {
-    const keyString = key.join('#')
+    const keyString = key.join("#")
     await this.client.send(
       new DeleteItemCommand({
         TableName: this.tableName,
-        Key: { pk: { S: keyString } }
-      })
+        Key: { pk: { S: keyString } },
+      }),
     )
   }
 
   async *scan(prefix: string[]): AsyncIterable<[string[], any]> {
     // Implementation for scanning with prefix
     // This would use DynamoDB's Query operation
-    throw new Error('Not implemented - use Query operation for DynamoDB')
+    throw new Error("Not implemented - use Query operation for DynamoDB")
   }
 }
 ```
@@ -513,31 +448,35 @@ export class DynamoStorage implements StorageAdapter {
 describe("Storage Compliance", () => {
   const storages = [
     ["Memory", new MemoryStorage()],
-    ["DynamoDB", new DynamoStorage(client, 'auth-table')],
+    ["DynamoDB", new DynamoStorage(client, "auth-table")],
   ]
 
   for (const [name, storage] of storages) {
     describe(name, () => {
       it("should save and retrieve data", async () => {
         await storage.set(
-          ['oauth:refresh', 'user-1', 'token-1'],
+          ["oauth:refresh", "user-1", "token-1"],
           { subject: { type: "user", properties: {} } },
-          new Date(Date.now() + 3600000)
+          new Date(Date.now() + 3600000),
         )
 
-        const retrieved = await storage.get(['oauth:refresh', 'user-1', 'token-1'])
+        const retrieved = await storage.get([
+          "oauth:refresh",
+          "user-1",
+          "token-1",
+        ])
         expect(retrieved).toBeDefined()
       })
 
       it("should handle TTL expiry", async () => {
         await storage.set(
-          ['test', 'expired'],
-          { data: 'test' },
-          new Date(Date.now() - 1000) // Already expired
+          ["test", "expired"],
+          { data: "test" },
+          new Date(Date.now() - 1000), // Already expired
         )
 
         // Should be expired (implementation dependent)
-        const retrieved = await storage.get(['test', 'expired'])
+        const retrieved = await storage.get(["test", "expired"])
         // Result depends on storage implementation
       })
     })
@@ -1206,10 +1145,13 @@ const auth = createAuth({
     const user = await yourDB.getUser(subject.userId)
     return {
       ...subject,
-      context: user.currentWorkspaceId ? {
-        workspaceId: user.currentWorkspaceId,
-        role: user.workspaces.find(w => w.id === user.currentWorkspaceId)?.role
-      } : undefined
+      context: user.currentWorkspaceId
+        ? {
+            workspaceId: user.currentWorkspaceId,
+            role: user.workspaces.find((w) => w.id === user.currentWorkspaceId)
+              ?.role,
+          }
+        : undefined,
     }
   },
 })

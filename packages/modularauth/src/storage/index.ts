@@ -1,4 +1,4 @@
-import type { StorageAdapter } from "../types.js"
+import type { StorageAdapter } from "../core/types.js"
 
 const SEPARATOR = String.fromCharCode(0x1f)
 
