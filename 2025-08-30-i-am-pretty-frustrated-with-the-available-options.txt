@@ -1,0 +1,1698 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/natac/code/forks/openauthjs         │
+╰───────────────────────────────────────────────────╯
+
+ Tips for getting started:
+
+  Run /init to create a CLAUDE.md file with instructions for Claude
+  Use Claude to help with file analysis, editing, bash commands and git
+  Be as specific as you would with another engineer for the best results
+  ✔ Run /terminal-setup to set up terminal integration
+
+> I am pretty frustrated with the available options for an auth solution for Typescript applications. From the options I have the following complaints:
+
+  Clerk: I dont like that it manages the users itself. It cost money at scale and for some features even at lower scale. I like how easy it looks to use but due to the cost I have never even tried...
+  BetterAuth: I dont like that they force me to use a SQL database. Sometimes that is fine but for applications that have a lower budget I like to use AWS DynamoDB which is very cheap at low usage.
+  BetterAuth looks amazing as an option despite the use cookies and session and their database adapter is directly tied to sql access patterns or ability, so mongo does work but still. It is hard to justify
+  the DB cost of SQL or mongo or even Convex when doing a smaller site that need auth. Yes I know it is usually a fact that I should be making money but that has not been the case for me.... lol
+  OpenAuth: I dont like that it acts as a complete separate hono auth server. For the most part I really like what OpenAuth does but I want to have my own UI for login and it seems bad to have to go from my web 
+  app, initial call to the auth server only to get redirected back to a method select screen, back to auth, back to web, login, back to auth. I love that OpenAuth can be used though as a Lambda Authorizer as it is
+   OAuth 2.0 compliant. OpenAuth has also not been getting updates for awhile. I like it but wish it would work at the request response level instead of being a full hono api server
+
+  What I want is a auth library which is OAuth 2.0 compliant as well as the ability for OIDC with the userInfo. I want the library to let me manage the database. Even if there is a requirement to store some
+  data, like the private key and refresh token info the library should have a database like adapter. I want the library to be easy to setup and work well with both web and mobile react native applications. I
+  do not need to support email and password at all! I want to support other OAuth providers like Google, Github, Apple, LinkedIn etc, WebAuthn for passkeys, OTP sent with email or phone. I want this to work
+  with things like Lambda Authorizers so I believe that is JWKs. It would be best if the auth providers could be the same as OpenAuth or BetterAuth or We use the oauth4webapi library like the others do. I
+  want the library to use Web Standards for request and response so it can be used with modern frameworks and Hono, which is what I will usually use it for. I want there to be a client that will handle the
+  auth logic nicely but not get in the way of the framework or how the user choose to use it.
+
+  Help me plan this out and understand what I need to build. Please ask any questions that will help you understand what I want. We are in the OpenAuth codebase but I dont want you to write any code. I want
+  to have a conversation about this idea I want. I want to not have to worry every time I start a project about auth. I want to be able to understand and use a simple auth package. Again do not write code.
+  you can use the repo as an way to help you understand openauth but again I do believe I will have to write my own in some way even if we heavily borrow from it or BetterAuth.
+
+  And again we do not want to author database adapters we only want to have the bare mininum if needed as an interface. Please read every thing I wrote twice to best understand.
+
+⏺ I understand your frustration with existing auth solutions. Let me explore the OpenAuth codebase to better understand its architecture and then ask some clarifying questions to help plan what you want to
+  build.
+
+⏺ Search(pattern: "**/README.md")
+  ⎿  Found 100 files (ctrl+r to expand)
+
+⏺ Search(pattern: "**/package.json")
+  ⎿  Found 100 files (ctrl+r to expand)
+
+⏺ Read(README.md)
+  ⎿  Read 312 lines (ctrl+r to expand)
+
+⏺ Search(pattern: "packages/*/package.json")
+  ⎿  Found 3 files (ctrl+r to expand)
+
+⏺ Search(pattern: "packages/openauth/src/**/*.ts")
+  ⎿  Found 39 files (ctrl+r to expand)
+
+⏺ Read(packages/openauth/src/index.ts)
+  ⎿  Read 27 lines (ctrl+r to expand)
+
+⏺ Read(packages/openauth/src/issuer.ts)
+  ⎿  Read 1154 lines (ctrl+r to expand)
+
+⏺ Read(packages/openauth/src/client.ts)
+  ⎿  Read 845 lines (ctrl+r to expand)
+
+⏺ Now I understand OpenAuth's architecture better. Based on your requirements and my analysis of the OpenAuth codebase, here are some key questions to help me understand what you want to build:
+
+  Architecture Questions
+
+  1. Database Adapter Interface: You mentioned wanting the library to have a database adapter interface but with minimal requirements. What data do you think is absolutely necessary to store? From OpenAuth I see
+   they store:
+    - Refresh tokens
+    - Authorization codes (temporary)
+    - Password hashes (for password provider)
+    - Private/public keys for JWT signing
+
+  Would you want just a simple key-value interface like OpenAuth's storage adapter, or something more structured?
+  2. Request/Response Level vs Server: You mentioned wanting it to work at the request/response level instead of being a full Hono server. Are you thinking more like middleware functions that you can compose
+  into your existing Hono app? Something like:
+  app.post('/auth/token', authTokenHandler(config))
+  app.get('/auth/authorize', authAuthorizeHandler(config))
+  3. Client Library: For the client side, do you want it to be framework-agnostic but still handle the OAuth flows automatically? Or more like utility functions you can call manually?
+
+  Feature Questions
+
+  4. OAuth 2.0 Compliance: You want it to be OAuth 2.0 compliant like OpenAuth. Do you also want OIDC support (like the /userinfo endpoint)?
+  5. Provider Support: You mentioned wanting the same providers as OpenAuth/BetterAuth. Do you want to reuse their provider implementations or write your own? OpenAuth uses oauth4webapi like you mentioned
+  wanting.
+  6. UI Requirements: You said you want your own UI for login but mentioned WebAuthn/passkeys and OTP. Do you want the library to provide any UI components at all, or handle everything programmatically?
+
+  Implementation Strategy
+
+  7. Starting Point: Given that you like OpenAuth's architecture but want it to be more composable, would you prefer to:
+    - Fork OpenAuth and refactor it to be more modular?
+    - Start from scratch but heavily borrow patterns/code?
+    - Extract the core OAuth logic from OpenAuth into reusable pieces?
+  8. Lambda Authorizer: You mentioned wanting it to work with Lambda Authorizers. Are you thinking the library should provide utilities to easily create JWT verification functions for API Gateway?
+
+  Based on your frustrations, it sounds like you want something that combines:
+  - OpenAuth's OAuth 2.0 compliance and provider ecosystem
+  - BetterAuth's ease of use and modularity
+  - Your own database choice flexibility
+  - More control over the UI and integration
+
+  Does this capture what you're looking for? What aspects would you like to dive deeper into first?
+
+> 1. I thinking based on looking at OpenAuth we need to have a way to store those same things as well as actually handle the users. I dont want the library to manage a database at all. I will obviously have a 
+  database that I use for the application so I just want to give via an adapter the access the library will need. I would rather it be a bit more structured then the generic OpenAuth is. 
+  2. I want it to work with hono or others like BetterAuth:
+  Hono:
+  const app = new Hono();
+   
+  app.on(["POST", "GET"], "/api/auth/*", (c) => {
+      return auth.handler(c.req.raw);
+  });
+   
+  serve(app);
+
+  TanStack Start:
+  import { auth } from '@/lib/auth' // import your auth instance
+  import { createServerFileRoute } from '@tanstack/react-start/server'
+   
+  export const ServerRoute = createServerFileRoute('/api/auth/$').methods({
+    GET: ({ request }) => {
+      return auth.handler(request)
+    },
+    POST: ({ request }) => {
+      return auth.handler(request)
+    },
+  })
+
+  3. I would prefer it be framework agnostic but still handle the things required
+  4. I want it to be OAuth2.0 for sure. And then I would love a way to supply via an interface the required info needed to satisfy the OIDC userInfo endpoint
+  5. I would love to just use OpenAuth or BetterAuth or even Authjs providers if we can rather than write them yet again. 
+  6. The library could provider component examples or some sort of generator for shadcn based components but I hate that OpenAuth has the 'select' screen. I just want my own login screen which will work more like 
+  better auth client 
+  Usage
+  Sign In with Google
+  To sign in with Google, you can use the signIn.social function provided by the client. The signIn function takes an object with the following properties:
+
+  provider: The provider to use. It should be set to google.
+  auth-client.ts
+
+  import { createAuthClient } from "better-auth/client";
+  const authClient = createAuthClient();
+   
+  const signIn = async () => {
+    const data = await authClient.signIn.social({
+      provider: "google",
+    });
+  };
+  Sign In with Google With ID Token
+  To sign in with Google using the ID Token, you can use the signIn.social function to pass the ID Token.
+
+  This is useful when you have the ID Token from Google on the client-side and want to use it to sign in on the server.
+
+  If ID token is provided no redirection will happen, and the user will be signed in directly.
+
+  auth-client.ts
+
+  const data = await authClient.signIn.social({
+      provider: "google",
+      idToken: {
+          token: // Google ID Token,
+          accessToken: // Google Access Token
+      }
+  })
+  7. Im ok with any of those whatever you think is best. Forking to start seem logical but with the changes I want it will be more than just updating OpenAuth and hoping it gets merged. So maybe copying code is 
+  better I dont know. Ill leave that up to your expert choice.
+  8. OpenAuth claims to already work with things like Lambda authorizer as it is OAuth2.0 compliant so as long as we keep that we should be good. The idea of me saying that was to avoid cookie sessions like 
+  BetterAuth does or classic auth tutorials
+
+
+  An yes that sounds right. I want the logic to be OpenAuth but have it be more modular and be able to support providers like passkeys, social Oauth like google github, and OTP emailed or phone codes. I want to be
+   able to deploy it to any server that is Web Standard request response like Hono, TanStack Start, React router v7
+
+✻ Thinking…
+
+  The user has provided very clear requirements now. Let me break this down:
+
+  1. Database Adapter: They want a more structured adapter interface than OpenAuth's generic key-value store, but still want the library to be database-agnostic. They want to handle users in their own database.
+  2. Framework Integration: They want it to work like BetterAuth with a single auth.handler(request) that can be used with any Web Standards compliant framework (Hono, TanStack Start, etc.).
+  3. Client Library: Framework-agnostic but still handles OAuth flows automatically.
+  4. OAuth 2.0 + OIDC: OAuth 2.0 compliant with optional OIDC userInfo endpoint via interface.
+  5. Provider Support: Reuse existing providers from OpenAuth/BetterAuth/AuthJS rather than writing new ones.
+  6. UI: No built-in select screen like OpenAuth. More like BetterAuth client with programmatic signIn.social({ provider: "google" }) calls. Maybe provide shadcn component examples.
+  7. Implementation: Fork/copy from OpenAuth seems reasonable.
+  8. Lambda Authorizer: Keep OAuth 2.0 compliance, avoid cookie sessions.
+
+  This is a solid plan. They want:
+  - OpenAuth's OAuth 2.0 compliance and architecture
+  - BetterAuth's modularity and client API
+  - Their own database flexibility
+  - Web Standards compatibility
+  - No built-in UI constraints
+
+  I should ask some follow-up questions to clarify the specific interfaces and structure they want, especially around the database adapter and how they want to handle user management.
+
+⏺ Perfect! This gives me a much clearer picture. You want OpenAuth's solid OAuth 2.0 foundation with BetterAuth's developer experience and modularity. Let me ask a few more specific questions to nail down the
+  interfaces:
+
+  Database Adapter Structure
+
+  Since you want it more structured than OpenAuth's generic key-value store, I'm thinking something like:
+
+  interface AuthAdapter {
+    // OAuth 2.0 required storage
+    tokens: {
+      saveRefreshToken(subject: string, token: string, data: RefreshTokenData, ttl: number): Promise<void>
+      getRefreshToken(subject: string, token: string): Promise<RefreshTokenData | null>
+      deleteRefreshToken(subject: string, token: string): Promise<void>
+      invalidateAllTokens(subject: string): Promise<void>
+    }
+
+    codes: {
+      saveAuthCode(code: string, data: AuthCodeData, ttl: number): Promise<void>
+      getAuthCode(code: string): Promise<AuthCodeData | null>
+      deleteAuthCode(code: string): Promise<void>
+    }
+
+    // Provider-specific storage (passwords, etc.)
+    accounts: {
+      savePasswordHash(email: string, hash: string): Promise<void>
+      getPasswordHash(email: string): Promise<string | null>
+      // etc for OTP codes, passkey credentials
+    }
+
+    // User lookup/creation - this is YOUR domain logic
+    users: {
+      findOrCreateUser(providerData: ProviderResult): Promise<{ id: string, [key: string]: any }>
+    }
+  }
+
+  Does this structure make sense? The library handles OAuth storage, you handle user management?
+
+  Client API Design
+
+  For the client API, are you thinking something like:
+
+  // Server setup
+  const auth = createAuth({
+    adapter: myDatabaseAdapter,
+    providers: {
+      google: GoogleProvider({ ... }),
+      github: GitHubProvider({ ... }),
+      passkey: PasskeyProvider({ ... }),
+    },
+    subjects: {
+      user: object({ userId: string(), email: string() })
+    }
+  })
+
+  // Framework integration
+  app.on(["POST", "GET"], "/api/auth/*", (c) => {
+    return auth.handler(c.req.raw)
+  })
+
+  // Client usage
+  const client = createAuthClient({ baseURL: "/api/auth" })
+
+  // Sign in methods
+  await client.signIn.social({ provider: "google" })
+  await client.signIn.passkey({ email: "user@example.com" })
+  await client.signIn.otp({ email: "user@example.com", code: "123456" })
+
+  Provider Integration
+
+  For reusing existing providers, I think OpenAuth's provider system is cleaner than BetterAuth's. We could:
+
+  1. Use OpenAuth's provider interface but make it more modular
+  2. Add adapters for BetterAuth/AuthJS providers to work with our system
+  3. Focus on the most common providers first (Google, GitHub, Apple, Passkeys, Email/OTP)
+
+  OIDC UserInfo
+
+  For the userInfo endpoint, something like:
+
+  const auth = createAuth({
+    // ... other config
+    userInfo: async (subject) => {
+      // You provide this function to return user data for OIDC
+      const user = await db.users.findById(subject.userId)
+      return {
+        sub: subject.userId,
+        email: user.email,
+        name: user.name,
+        // ... whatever you want to expose
+      }
+    }
+  })
+
+  Implementation Questions
+
+  1. Starting Point: Should we fork OpenAuth and refactor it to be more modular, or extract the core pieces into a new library structure?
+  2. Provider Priority: Which providers do you want to support first? (Google, GitHub, Passkeys, Email/OTP seem like good starting points)
+  3. Client Framework Support: Do you want the client to have framework-specific helpers (React hooks, etc.) or keep it purely vanilla JS?
+  4. Passkey Implementation: For WebAuthn/passkeys, are you thinking server-side storage of credentials or just verification?
+
+  Does this direction align with what you're envisioning? What would you like to focus on first - the overall architecture, the adapter interface, or diving into a specific provider implementation?
+
+> /model 
+  ⎿  Set model to opus (claude-opus-4-1-20250805)
+
+> This plan sounds almost perfect!! The database adapter is a bit more complex than I was hoping (not that I knew or had a better idea). But the rest is perfect. Those API interfaces are a looking great! For     │
+  │   the providers lets just start with OpenAuth's by using them and not worry about the adapter for the others at all. The providers you suggested we focus on are perfect! and the userInfo is looking as I was   
+     │
+  │   thinking.                                                                                                                                                                                                      
+     │
+  │                                                                                                                                                                                                                  
+     │
+  │   1. Fork it is find yes. We are truthfully are ready in a fork right now if you check with git you should see this.                                                                                             
+     │
+  │   2. Those proviers yes. Email/OTP first, Social for google, github then passkey                                                                                                                                 
+     │
+  │   3. I think trying to keep in vanilla TS is best but I think we can also use that to make a react hook context provider as well. As that is mostly where Ill be using it                                        
+     │
+  │   4. I want to do the server-side storage so we have full passkey login support. Im not really sure what this question even really means. I just want passkey support lol                                        
+     │
+  │                                                                                                                                                                                                                  
+     │
+  │   Please understand that I dont think we need to have any legacy or backward compatability with OpenAuth. This library is for me and not everyone at the moment. I need something I can use relyably and be happy
+     │
+  │   with and not have to worry about each time I start an application.                                                                                                                                             
+     │
+  │                                                                                                                                                                                                                  
+     │
+  │   Please review the openAuth codebase in depth so you know how it works to help create a plan file for what we are going to be doing. Make sure to include what I want. What we have talked about doing and why. 
+     │
+  │   Show pseudo code for the how and overall idea we want. And then talk about how we are going to use OpenAuth, fork it and use it as a base to start our version. Talk about what we will keep and what needs to 
+     │
+  │   change. Make sure to show the user level api to the library we are planning to build. You are to only write this plan file. Make it detailed please
+
+✻ Thinking…
+
+  The user wants me to:
+  1. Review the OpenAuth codebase in depth
+  2. Create a detailed plan file for building their new auth library
+  3. Include pseudo code and examples
+  4. Explain what they'll keep from OpenAuth and what needs to change
+  5. Show the user-level API
+  6. Not write any actual code, just the plan
+
+  They want:
+  - A fork of OpenAuth as the base
+  - More modular architecture
+  - Database adapter interface (they handle users)
+  - Web Standards request/response
+  - No backward compatibility needed
+  - Focus on Email/OTP, Google, GitHub, and Passkeys
+  - Vanilla TS client with React hooks later
+  - Server-side passkey storage
+
+  Let me explore the OpenAuth codebase more deeply to understand its structure better.
+
+⏺ I'll review the OpenAuth codebase in depth and create a comprehensive plan for your new auth library. Let me explore the codebase structure first.
+
+⏺ Task(Analyze OpenAuth codebase)
+  ⎿  Done (27 tool uses · 80.7k tokens · 13m 34.3s)                                                                                                                                                               
+
+✻ Thinking…
+
+  Now I need to create a comprehensive plan file that:
+  1. Explains what we're building and why
+  2. Shows the architecture we want
+  3. Includes pseudo code and examples
+  4. Details what we'll keep from OpenAuth and what needs to change
+  5. Shows the user-level API
+
+  Let me create a detailed plan document.
+
+⏺ Write(ARCHITECTURE_PLAN.md)
+  ⎿  Wrote 662 lines to ARCHITECTURE_PLAN.md                                                                                                                                                                      
+     # ModularAuth: A Modern, Composable Authentication Library
+     ## Executive Summary
+     ModularAuth is a fork and evolution of OpenAuth that provides OAuth 2.0/OIDC-compliant authentication with a focus on modularity, developer experience, and database flexibility. Unlike existing solutions,
+     it:
+     - **Works at the request/response level**, not as a standalone server
+     - **Lets you manage your own database** through a structured adapter interface
+     - **Provides a BetterAuth-like client API** with framework-agnostic design
+     - **Supports modern auth methods** (OAuth providers, Passkeys, Email/OTP)
+     … +652 lines (ctrl+r to expand)
+
+✻ Thinking…
+
+  The user asked me to only write the plan file, which I've done. The plan is comprehensive and covers:
+
+  1. What they're building and why
+  2. The architecture they want
+  3. Pseudo code and examples
+  4. What they'll keep from OpenAuth and what changes
+  5. The user-level API
+
+  I should not write any actual code or start implementation. The plan file is complete and detailed as requested.
+
+⏺ I've created a comprehensive architecture plan in ARCHITECTURE_PLAN.md that details exactly what we're building. The plan covers:
+
+  Key Highlights
+
+  The Vision: A modular auth library that takes OpenAuth's OAuth 2.0 foundation but makes it work at the request/response level, lets you manage your own database, and provides a better developer experience.
+
+  Core Changes from OpenAuth:
+  - Monolithic issuer.ts → Modular handlers - Breaking up the 1150+ line file into focused, testable modules
+  - Standalone server → Request/Response handler - Works with any framework that supports Web Standards
+  - Generic KV storage → Structured database adapter - You control user management, we handle OAuth mechanics
+  - Complex UI flows → Clean client API - Similar to BetterAuth's signIn.social() pattern
+
+  What We Keep:
+  - OAuth 2.0/OIDC compliance
+  - JWT signing and verification
+  - PKCE support
+  - Security features (domain validation, token rotation)
+  - Provider patterns (adapted for modularity)
+
+  New Architecture:
+  - Modular handler system for each endpoint
+  - Structured database adapter with clear responsibilities
+  - Framework-agnostic client with simple API
+  - Provider registry system
+  - React integration as a separate package
+
+  Implementation Plan:
+  - Phase 1: Core architecture refactoring
+  - Phase 2: Provider implementation (Email/OTP, Google, GitHub, Passkeys)
+  - Phase 3: Client library
+  - Phase 4: Database adapters
+  - Phase 5: Testing & documentation
+
+  The plan shows exactly how you'll use it with different frameworks, how the database adapter works, and what the client API looks like. It's designed to give you the control and simplicity you want while
+  maintaining OAuth 2.0 compliance for things like Lambda Authorizers.
+
+> /context 
+  ⎿  ⛁ ⛀ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Context Usage
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   claude-opus-4-1-20250805 • 14k/200k tokens (7%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 3.1k tokens (1.5%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 11.4k tokens (5.7%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛶ Free space: 185.5k (92.8%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ 
+
+> Ok couple things about the plan. The onSucess from OpenAuth is 'ok' but I find it a bit limiting for the 'signup' flow as I want to use the Authentication check for a user and if not found creating the user is 
+  the simple case but the one I find limiting is when I want to have the user do billing. I guess I could still create the user but mark it as needing billing or something. Just something to think of. 
+  And also we should be able, like OpenAuth to avoid 'any' type and make use of generics and the 'Subject' or even also have other generics if we need to avoid the 'any' type. 
+
+  Just to be clear Im ok with the onSuccess pattern if it is normal to create the user and just have a flag for billing. What are your thoughts?
+
+✻ Thinking…
+
+  The user is bringing up two important points:
+
+  1. The onSuccess callback pattern from OpenAuth might be limiting for signup flows, especially when you want to handle billing or other multi-step onboarding processes. They're wondering if creating the user with 
+  a flag (like needsBilling: true) is the right approach.
+  2. They want to avoid any types and use proper generics/types throughout, similar to how OpenAuth uses the Subject system.
+
+  Let me think about the onSuccess pattern:
+
+  The onSuccess pattern is actually quite flexible - you can:
+  - Create a user with flags/states
+  - Return different subject types based on the user state
+  - Redirect to different places based on user state
+  - Even return an error response if needed
+
+  For billing, the common patterns are:
+  1. Create user with a flag like billingRequired: true or status: 'pending_billing'
+  2. Use different subject types for different user states
+  3. Handle billing in the client after auth
+
+  I think the flag approach is actually the cleanest because:
+  - User exists in system (can save progress, preferences, etc.)
+  - Auth flow stays simple
+  - Client can check user state and redirect accordingly
+  - You can block certain actions based on the flag
+
+  For the types, yes absolutely - we should use generics throughout. The plan I wrote does have some any types that should be replaced with proper generics.
+
+⏺ You're absolutely right on both points! Let me address them:
+
+  1. The onSuccess Pattern and Signup Flows
+
+  The flag approach you mentioned is actually the standard pattern and works really well. Here's why:
+
+  onSuccess: async (ctx, provider, providerData) => {
+    let user = await adapter.users.findUser({
+      provider: provider.name,
+      providerId: providerData.id
+    })
+
+    if (!user) {
+      // New user signup flow
+      user = await adapter.users.createUser({
+        email: providerData.email,
+        name: providerData.name,
+        status: 'pending_billing', // or needsBilling: true
+        // other fields...
+      })
+    }
+
+    // Return subject with user state
+    return ctx.subject('user', user.id, {
+      userId: user.id,
+      email: user.email,
+      status: user.status, // Include this in JWT
+      workspaceId: user.currentWorkspaceId
+    })
+  }
+
+  Then in your client/app:
+  const session = await client.getSession()
+  if (session.user.status === 'pending_billing') {
+    router.push('/onboarding/billing')
+  }
+
+  This pattern is preferred because:
+  - User exists immediately (can save preferences, track progress)
+  - Auth stays simple and stateless
+  - You can have multi-step onboarding
+  - User can come back later and continue where they left off
+  - You can still access some features while pending billing
+
+  Alternative: You could also use different subject types:
+  subjects: {
+    user: object({ userId: string(), email: string() }),
+    pendingUser: object({ userId: string(), email: string(), missingBilling: literal(true) })
+  }
+
+  But the flag approach is cleaner and more flexible.
+
+  2. Type Safety with Generics
+
+  You're absolutely right - we should avoid any types. Here's how we fix that:
+
+  // Instead of any, use proper generics throughout
+  interface AuthConfig<
+    TProviders extends Record<string, Provider>,
+    TSubjects extends SubjectSchema,
+    TUser extends Record<string, unknown> = Record<string, unknown>
+  > {
+    adapter: AuthAdapter<TUser>
+    providers: TProviders
+    subjects: TSubjects
+
+    onSuccess: (
+      ctx: SuccessContext<TSubjects>,
+      provider: keyof TProviders,
+      providerData: InferProviderData<TProviders[keyof TProviders]>
+    ) => Promise<Response>
+
+    userInfo?: (
+      subject: InferSubject<TSubjects>
+    ) => Promise<OIDCUserInfo>
+  }
+
+  // Database adapter with proper types
+  interface AuthAdapter<TUser extends Record<string, unknown>> {
+    users: {
+      findOrCreateUser(
+        data: ProviderUserData
+      ): Promise<TUser>
+
+      getUser(userId: string): Promise<TUser | null>
+
+      getUserInfo(userId: string): Promise<OIDCUserInfo>
+    }
+
+    tokens: {
+      saveRefreshToken<TProps>(
+        subject: string,
+        token: string,
+        data: RefreshTokenData<TProps>,
+        ttl: number
+      ): Promise<void>
+
+      getRefreshToken<TProps>(
+        subject: string,
+        token: string
+      ): Promise<RefreshTokenData<TProps> | null>
+    }
+    // ... rest properly typed
+  }
+
+  // Provider data inference
+  type InferProviderData<T> = T extends Provider<infer D> ? D : never
+
+  // Subject inference (like OpenAuth)
+  type InferSubject<T extends SubjectSchema> = {
+    [K in keyof T]: {
+      type: K
+      properties: v1.InferOutput<T[K]>
+    }
+  }[keyof T]
+
+  Usage would be fully typed:
+  const auth = createAuth({
+    adapter: myAdapter, // TUser inferred from adapter
+    providers: {
+      google: GoogleProvider({ ... }), // Provider data typed
+      github: GitHubProvider({ ... })
+    },
+    subjects: {
+      user: object({
+        userId: string(),
+        email: string(),
+        status: union([
+          literal('active'),
+          literal('pending_billing'),
+          literal('suspended')
+        ])
+      })
+    },
+    onSuccess: async (ctx, provider, providerData) => {
+      // providerData is properly typed based on provider
+      // ctx.subject() validates the properties match schema
+      // All fully typed, no any!
+    }
+  })
+
+  The plan should definitely be updated to show this level of type safety throughout. OpenAuth does this well and we should maintain that standard.
+
+  What do you think about the billing flag approach? It's the pattern used by Stripe, Clerk, and most SaaS apps - create the user immediately but track their state/status for gating features.
+
+> Yep the flag is a fine approach and lets us keep the onSuccess. However, I just thought about another limitation in that the subject info is not updateable. So things like the workspaceId Im not sure how we 
+  first get and or change if the user switches work spaces. We dont want to have to have them login again. Can you help me with this too and update the plan with the generics for typesafety please. But we need to 
+  still talk more first about the subject updating before we solve it and include it in the plan
+
+⏺ You've identified a critical limitation! The JWT subject being immutable is a real problem for dynamic data like workspaceId. Let's think through the options:
+
+  The Problem
+
+  Once a JWT is issued with subject data, it can't be updated without reissuing the token. So if a user switches workspaces, we have these options:
+
+  Option 1: Keep Dynamic Data Out of JWT (Recommended)
+
+  The JWT only contains stable identity data, dynamic data is fetched per-request:
+
+  // JWT only has stable identity
+  subjects: {
+    user: object({
+      userId: string(),
+      email: string()
+    })
+  }
+
+  // Workspace comes from your app logic
+  const session = await client.getSession()
+  const workspace = await getActiveWorkspace(session.user.userId)
+
+  Pros:
+  - JWT stays small and cacheable
+  - No token reissue needed for workspace changes
+  - Clean separation of concerns
+
+  Cons:
+  - Extra database lookup for workspace
+  - Can't use workspace in Lambda Authorizer directly
+
+  Option 2: Short-Lived Access Tokens with Refresh
+
+  Keep workspace in JWT but use very short access token TTL:
+
+  ttl: {
+    access: 60 * 5, // 5 minutes
+    refresh: 60 * 60 * 24 * 30 // 30 days
+  }
+
+  // Client auto-refreshes and gets new workspace
+  const client = createAuthClient({
+    onRefresh: async (tokens) => {
+      // Token refreshed with current workspace
+    }
+  })
+
+  Pros:
+  - Workspace in JWT for authorization
+  - Eventually consistent
+
+  Cons:
+  - Frequent refreshes
+  - Still has staleness window
+
+  Option 3: Reissue Token Endpoint
+
+  Add an endpoint to reissue tokens with updated subject:
+
+  // New endpoint in auth
+  POST /api/auth/reissue
+  Authorization: Bearer <current_token>
+  Body: { workspaceId: "new-workspace" }
+
+  // Returns new tokens with updated subject
+
+  // Client usage
+  await client.updateSession({
+    workspaceId: newWorkspaceId
+  })
+
+  Pros:
+  - Explicit workspace changes
+  - Immediate consistency
+  - Audit trail of workspace switches
+
+  Cons:
+  - More complex
+  - Requires explicit action
+
+  Option 4: Claims Endpoint (OIDC Pattern)
+
+  Similar to /userinfo, have a /claims endpoint for dynamic data:
+
+  // JWT has userId only
+  // Fetch current claims including workspace
+  const claims = await client.getClaims()
+  // { userId: "...", workspaceId: "...", permissions: [...] }
+
+  // Can be cached client-side with TTL
+
+  Pros:
+  - Standard OIDC pattern
+  - Flexible for any dynamic data
+  - Can cache with different TTL than JWT
+
+  Cons:
+  - Extra request for claims
+  - Need to handle caching
+
+  Option 5: Session Layer (Like BetterAuth)
+
+  Add a session concept on top of JWT:
+
+  interface Session {
+    token: string // JWT with userId
+    workspace: string // Dynamic
+    // other mutable state
+  }
+
+  // Session stored in adapter, referenced by JWT
+  await adapter.sessions.updateWorkspace(sessionId, workspaceId)
+
+  Pros:
+  - Very flexible
+  - Can update anything
+
+  Cons:
+  - Adds stateful session management
+  - Loses pure JWT benefits
+
+  My Recommendation
+
+  I think Option 1 + Option 3 gives the best balance:
+
+  1. Default: Keep JWT minimal (userId, email) and fetch workspace from your app
+  2. When needed: Provide reissue endpoint for cases where you need workspace in JWT (like Lambda Authorizers)
+
+  const auth = createAuth({
+    subjects: {
+      user: object({
+        userId: string(),
+        email: string(),
+        // Optional dynamic fields that can be reissued
+        workspaceId: optional(string())
+      })
+    },
+
+    // Allow reissuing tokens with updated subject
+    allowReissue: async (currentSubject, updates, adapter) => {
+      // Validate user can access the workspace
+      const canAccess = await adapter.users.canAccessWorkspace(
+        currentSubject.userId,
+        updates.workspaceId
+      )
+      return canAccess
+    }
+  })
+
+  // Client usage
+  const client = createAuthClient()
+
+  // Switch workspace
+  await client.reissueTokens({
+    workspaceId: 'new-workspace-id'
+  })
+
+  What do you think? Which approach fits your use case best? We could also support multiple patterns and let you choose.
+
+> Well I think access tokens should be pretty shorted lived regardless. Option 3 sounds perfect but you mentioned option 4 being a standard thing. Are there not claims in the token itself? There must be a pattern 
+  that larger orgs use for this. Lets keep talking
+
+⏺ You're absolutely right! Let's dig into what larger orgs actually do. There ARE claims in the JWT itself, and there's a distinction I should clarify:
+
+  JWT Claims vs Dynamic Claims
+
+  Standard JWT Claims (in the token):
+  - sub (subject/userId)
+  - iat (issued at)
+  - exp (expiration)
+  - aud (audience/clientId)
+  - Custom claims like email, role, workspaceId
+
+  The problem is these are immutable once issued.
+
+  What Large Orgs Actually Do
+
+  Auth0/Okta Pattern
+
+  They use "Access Token + ID Token + Refresh" with very short-lived access tokens:
+  - Access token: 5-10 minutes (with minimal claims)
+  - ID token: User profile info (for the client)
+  - Refresh token: Long-lived for getting new tokens
+
+  When you switch contexts (like workspace), you refresh to get new tokens with updated claims.
+
+  AWS Pattern
+
+  Uses AssumeRole - you have base credentials, then assume different roles:
+  // Base token has userId
+  // "Assume" workspace role to get workspace-scoped token
+  const workspaceToken = await auth.assumeContext({
+    workspaceId: 'workspace-123',
+    role: 'admin'
+  })
+
+  Slack's Pattern
+
+  They actually use OAuth scopes per workspace:
+  - Each workspace has its own token
+  - User authorizes per workspace
+  - Client manages multiple tokens
+
+  Google's Pattern
+
+  Uses short-lived access tokens + delegation:
+  - Access tokens: 1 hour
+  - Service can request delegated tokens for specific resources
+  - Claims include resource access, not resource identity
+
+  The Enterprise Pattern That Emerges
+
+  Most large systems use what's essentially Option 2 + Option 3 hybrid:
+
+  const auth = createAuth({
+    ttl: {
+      access: 60 * 10, // 10 minutes (short!)
+      refresh: 60 * 60 * 24 * 30 // 30 days
+    },
+
+    subjects: {
+      user: object({
+        userId: string(),
+        email: string(),
+        // Context that can change
+        context: optional(object({
+          workspaceId: string(),
+          role: string(),
+          permissions: array(string())
+        }))
+      })
+    },
+
+    // Called on every refresh (every 10 mins)
+    onRefresh: async (subject, adapter) => {
+      // Get current workspace from database
+      const workspace = await adapter.users.getCurrentWorkspace(subject.userId)
+
+      return {
+        ...subject,
+        context: {
+          workspaceId: workspace.id,
+          role: workspace.role,
+          permissions: workspace.permissions
+        }
+      }
+    },
+
+    // Explicit context switch endpoint
+    contextSwitch: async (subject, newContext, adapter) => {
+      // Validate and immediately issue new tokens
+      const canAccess = await adapter.users.canAccessWorkspace(
+        subject.userId,
+        newContext.workspaceId
+      )
+
+      if (!canAccess) throw new Error('Unauthorized')
+
+      // Return new tokens immediately
+      return createTokens({
+        ...subject,
+        context: newContext
+      })
+    }
+  })
+
+  Client experience:
+  // Normal usage - auto refreshes every 10 mins with current context
+  const session = await client.getSession()
+  console.log(session.user.context.workspaceId) // current workspace
+
+  // Explicit workspace switch - immediate new tokens
+  await client.switchContext({
+    workspaceId: 'new-workspace'
+  })
+  // New tokens issued immediately, no waiting for refresh
+
+  The Key Insight
+
+  The pattern is:
+  1. Short-lived access tokens (5-15 mins) that auto-refresh with current state
+  2. Explicit context switch for immediate changes (don't wait for refresh)
+  3. Context in the JWT for stateless authorization (Lambda Authorizers work!)
+
+  This is basically what Auth0 calls "contextual authorization" and AWS calls "session tags".
+
+  For Your Use Case
+
+  Since you want Lambda Authorizers to work, I think we need the workspace IN the JWT. So:
+
+  // Configuration
+  {
+    ttl: {
+      access: 60 * 10, // 10 mins - short enough to be "eventually consistent"
+      refresh: 60 * 60 * 24 * 30
+    },
+
+    // On refresh, grab current workspace
+    onRefresh: async (subject, adapter) => {
+      const user = await adapter.users.getUser(subject.userId)
+      return {
+        ...subject,
+        workspaceId: user.currentWorkspaceId
+      }
+    },
+
+    // Explicit switch for immediate change
+    endpoints: {
+      '/switch-workspace': async (req, currentToken) => {
+        const { workspaceId } = await req.json()
+        // Validate and reissue
+        return newTokensWithWorkspace(workspaceId)
+      }
+    }
+  }
+
+  Does this pattern make more sense? It's what most enterprises use - short-lived tokens that refresh frequently, plus explicit switching when needed.
+
+> Yes it makes sense. I just want to ask for the onRefresh would we first update the user's current workspace from the client and then do the refresh somehow? Or just call the reissue endpoint and provide the 
+  workspace id / subject info somehow?
+
+⏺ Great question! This is where we need to think about the separation of concerns. There are two patterns:
+
+  Pattern A: Client Updates Database, Then Refreshes
+
+  // Client-side
+  async function switchWorkspace(workspaceId: string) {
+    // 1. Update user's current workspace in YOUR database
+    await api.updateCurrentWorkspace(workspaceId)
+
+    // 2. Force token refresh to get new tokens with updated workspace
+    await authClient.refresh() // Forces immediate refresh
+  }
+
+  This feels awkward because:
+  - Two separate API calls
+  - Potential race conditions
+  - What if refresh fails after DB update?
+
+  Pattern B: Single Reissue/Switch Endpoint (Recommended)
+
+  // Server - ModularAuth provides this endpoint
+  POST /api/auth/switch-context
+  Authorization: Bearer <current-token>
+  Body: { workspaceId: "new-workspace" }
+
+  // This endpoint:
+  // 1. Validates user can access workspace
+  // 2. Updates user's current workspace in YOUR database (via adapter)
+  // 3. Issues new tokens with updated context
+  // All atomic!
+
+  Implementation:
+  const auth = createAuth({
+    // Your adapter handles the database update
+    adapter: {
+      users: {
+        switchWorkspace: async (userId: string, workspaceId: string) => {
+          // Validate access
+          const hasAccess = await db.userWorkspaces.findOne({ userId, workspaceId })
+          if (!hasAccess) throw new Error('No access')
+
+          // Update current workspace
+          await db.users.update(userId, { currentWorkspaceId: workspaceId })
+
+          // Return updated user
+          return db.users.findOne(userId)
+        }
+      }
+    },
+
+    // ModularAuth uses your adapter method
+    contextSwitch: {
+      enabled: true,
+      async handler(currentSubject, newContext, adapter) {
+        // This calls YOUR adapter.users.switchWorkspace
+        const user = await adapter.users.switchWorkspace(
+          currentSubject.userId,
+          newContext.workspaceId
+        )
+
+        // Return new subject for new tokens
+        return {
+          userId: user.id,
+          email: user.email,
+          workspaceId: user.currentWorkspaceId,
+          role: user.workspaces[user.currentWorkspaceId].role
+        }
+      }
+    }
+  })
+
+  Client usage:
+  // One call does everything!
+  await authClient.switchContext({
+    workspaceId: 'workspace-123'
+  })
+
+  // Behind the scenes:
+  // 1. Calls /api/auth/switch-context
+  // 2. Server validates via your adapter
+  // 3. Updates database via your adapter  
+  // 4. Returns new tokens
+  // 5. Client stores new tokens
+  // 6. Done!
+
+  The onRefresh Role
+
+  onRefresh is different - it's for automatic refresh when tokens expire naturally:
+
+  onRefresh: async (subject, adapter) => {
+    // This runs every 10 mins when token expires
+    // Just fetch current state, don't change anything
+    const user = await adapter.users.getUser(subject.userId)
+
+    return {
+      ...subject,
+      workspaceId: user.currentWorkspaceId,
+      // Refresh any other dynamic data
+      subscription: user.subscription.status
+    }
+  }
+
+  So the Complete Flow
+
+  1. Normal operation: Token auto-refreshes every 10 mins via onRefresh, picking up any changes
+  2. Explicit switch: Client calls switchContext, gets new tokens immediately
+  3. External changes: If workspace changes outside auth (like admin changes), next refresh picks it up
+
+  // Client code
+  const client = createAuthClient({
+    // Auto-refresh before expiry
+    autoRefresh: true,
+    refreshBuffer: 60 // Refresh 1 min before expiry
+  })
+
+  // Switching workspace - immediate
+  await client.switchContext({ workspaceId: 'new-id' })
+
+  // Just using the app - auto refreshes with current state
+  const session = await client.getSession()
+  // If token is near expiry, automatically refreshes with onRefresh
+
+  Does this make sense? The key insight is:
+  - onRefresh = passive, reads current state during normal refresh
+  - switchContext = active, updates state AND issues new tokens
+
+  This way your auth library handles the token part, your adapter handles the database part, and it's all atomic!
+
+> Perfect! Lets update the plan with this new info please. And I want to ask if the client has to explicitly call refresh or if we can do like Openauth and handle it if needed in the verify? Make sure to update 
+  the plan please with the reissue / context switch endpoint and the generic type safety. Then answer my question please
+
+⏺ Update(ARCHITECTURE_PLAN.md)
+  ⎿  Updated ARCHITECTURE_PLAN.md with 112 additions and 32 removals                                                    
+       54    └─────────────────────────────────────────────────────────┘
+       55    ```
+       56    
+       57 -  ## Core API Design
+       57 +  ## Core API Design with Full Type Safety
+       58    
+       59    ### Server Setup
+       60    
+     ...
+        62    import { createAuth } from '@modularauth/core'
+        63    import { GoogleProvider, GitHubProvider, PasskeyProvider, EmailOTPProvider } from '@modularauth/providers'
+        64    import { createDynamoAdapter } from './adapters/dynamo'
+        65 +  import { object, string, optional, literal, union } from 'valibot'
+        66    
+        67 -  // Create your database adapter
+        68 -  const adapter = createDynamoAdapter({
+        67 +  // Define your user type
+        68 +  interface User {
+        69 +    id: string
+        70 +    email: string
+        71 +    name?: string
+        72 +    currentWorkspaceId?: string
+        73 +    status: 'active' | 'pending_billing' | 'suspended'
+        74 +    workspaces: Array<{
+        75 +      id: string
+        76 +      role: 'owner' | 'admin' | 'member'
+        77 +    }>
+        78 +  }
+        79 +  
+        80 +  // Create your database adapter with proper types
+        81 +  const adapter = createDynamoAdapter<User>({
+        82      table: 'auth-data',
+        83      userTable: 'users'
+        84    })
+        85    
+        86 -  // Initialize auth instance
+        87 -  const auth = createAuth({
+        86 +  // Define subjects schema for type inference
+        87 +  const subjects = {
+        88 +    user: object({
+        89 +      userId: string(),
+        90 +      email: string(),
+        91 +      status: union([
+        92 +        literal('active'),
+        93 +        literal('pending_billing'),
+        94 +        literal('suspended')
+        95 +      ]),
+        96 +      // Context that can change dynamically
+        97 +      context: optional(object({
+        98 +        workspaceId: string(),
+        99 +        role: union([literal('owner'), literal('admin'), literal('member')]),
+       100 +        permissions: optional(array(string()))
+       101 +      }))
+       102 +    })
+       103 +  } as const
+       104 +  
+       105 +  // Initialize auth instance with full type safety
+       106 +  const auth = createAuth<
+       107 +    typeof providers,
+       108 +    typeof subjects,
+       109 +    User
+       110 +  >({
+       111      // Database adapter - you control user management
+       112      adapter,
+       113      
+       114      // OAuth 2.0 issuer configuration
+       115      issuer: 'https://auth.myapp.com',
+       116      
+       117 -    // Providers configuration
+       117 +    // Providers configuration - fully typed
+       118      providers: {
+       119        google: GoogleProvider({
+       120 -        clientId: process.env.GOOGLE_CLIENT_ID,
+       121 -        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+       120 +        clientId: process.env.GOOGLE_CLIENT_ID!,
+       121 +        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+       122          scopes: ['email', 'profile']
+       123        }),
+       124        
+       125        github: GitHubProvider({
+       126 -        clientId: process.env.GITHUB_CLIENT_ID,
+       127 -        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+       126 +        clientId: process.env.GITHUB_CLIENT_ID!,
+       127 +        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+       128          scopes: ['user:email']
+       129        }),
+       130        
+     ...
+       106        })
+       107      },
+       108      
+       109 -    // Define your JWT subject shape
+       110 -    subjects: {
+       111 -      user: object({
+       112 -        userId: string(),
+       113 -        email: string(),
+       114 -        workspaceId: optional(string())
+       115 -      })
+       109 +    // JWT subject shape with type inference
+       110 +    subjects,
+       111 +    
+       112 +    // Token TTL configuration - short-lived for dynamic data
+       113 +    ttl: {
+       114 +      access: 60 * 10, // 10 minutes - short for dynamic context
+       115 +      refresh: 60 * 60 * 24 * 30 // 30 days
+       116      },
+       117      
+       118 -    // Handle successful authentication
+       118 +    // Handle successful authentication - fully typed
+       119      onSuccess: async (ctx, provider, providerData) => {
+       120 -      // This is where you handle user creation/lookup
+       121 -      const user = await adapter.users.findOrCreateUser({
+       122 -        provider: provider.name,
+       123 -        providerId: providerData.id,
+       124 -        email: providerData.email,
+       125 -        // ... other provider-specific data
+       120 +      // providerData is typed based on the provider
+       121 +      let user = await adapter.users.findUser({
+       122 +        provider: provider,
+       123 +        providerId: providerData.id
+       124        })
+       125        
+       126 -      // Return the subject for the JWT
+       126 +      if (!user) {
+       127 +        // New user signup flow
+       128 +        user = await adapter.users.createUser({
+       129 +          email: providerData.email,
+       130 +          name: providerData.name,
+       131 +          status: 'pending_billing', // Flag for billing flow
+       132 +          workspaces: []
+       133 +        })
+       134 +      }
+       135 +      
+       136 +      // Return the subject for the JWT - type checked!
+       137        return ctx.subject('user', user.id, {
+       138          userId: user.id,
+       139          email: user.email,
+       140 -        workspaceId: user.currentWorkspaceId
+       140 +        status: user.status,
+       141 +        context: user.currentWorkspaceId ? {
+       142 +          workspaceId: user.currentWorkspaceId,
+       143 +          role: user.workspaces.find(w => w.id === user.currentWorkspaceId)?.role || 'member'
+       144 +        } : undefined
+       145        })
+       146      },
+       147      
+       148 +    // Called on automatic token refresh (every 10 mins)
+       149 +    onRefresh: async (subject, adapter) => {
+       150 +      // Get current state from database
+       151 +      const user = await adapter.users.getUser(subject.userId)
+       152 +      if (!user) throw new Error('User not found')
+       153 +      
+       154 +      // Return updated subject with current context
+       155 +      return {
+       156 +        ...subject,
+       157 +        context: user.currentWorkspaceId ? {
+       158 +          workspaceId: user.currentWorkspaceId,
+       159 +          role: user.workspaces.find(w => w.id === user.currentWorkspaceId)?.role || 'member'
+       160 +        } : undefined
+       161 +      }
+       162 +    },
+       163 +    
+       164 +    // Context switching for immediate updates
+       165 +    contextSwitch: {
+       166 +      enabled: true,
+       167 +      async handler(currentSubject, newContext, adapter) {
+       168 +        // Validate and switch workspace atomically
+       169 +        const user = await adapter.users.switchWorkspace(
+       170 +          currentSubject.userId,
+       171 +          newContext.workspaceId
+       172 +        )
+       173 +        
+       174 +        // Return new subject for immediate token reissue
+       175 +        return {
+       176 +          ...currentSubject,
+       177 +          context: {
+       178 +            workspaceId: user.currentWorkspaceId!,
+       179 +            role: user.workspaces.find(w => w.id === user.currentWorkspaceId)?.role || 'member'
+       180 +          }
+       181 +        }
+       182 +      }
+       183 +    },
+       184 +    
+       185      // OIDC userInfo endpoint data
+       186      userInfo: async (subject) => {
+       187        const user = await adapter.users.getUser(subject.userId)
+     ...
+       143          picture: user.avatar,
+       144          // ... any other OIDC standard claims
+       145        }
+       146 -    },
+       147 -    
+       148 -    // Token TTL configuration
+       149 -    ttl: {
+       150 -      access: 60 * 60, // 1 hour
+       151 -      refresh: 60 * 60 * 24 * 30 // 30 days
+       146      }
+       147    })
+       148    ```
+
+⏺ Update(ARCHITECTURE_PLAN.md)
+  ⎿  Updated ARCHITECTURE_PLAN.md with 20 additions and 4 removals          
+       265    })
+       266    ```
+       267    
+       268 -  ### Client Usage
+       268 +  ### Client Usage with Automatic Refresh
+       269    
+       270    ```typescript
+       271    import { createAuthClient } from '@modularauth/client'
+       272    
+       273    const client = createAuthClient({
+       274 -    baseURL: '/api/auth'
+       274 +    baseURL: '/api/auth',
+       275 +    // Enable automatic refresh before token expiry
+       276 +    autoRefresh: true,
+       277 +    refreshBuffer: 60 // Refresh 1 minute before expiry
+       278    })
+       279    
+       280    // Social sign-in (redirect-based)
+     ...
+       301      email: 'user@example.com' // optional, for account selection
+       302    })
+       303    
+       304 -  // Get current session
+       304 +  // Get current session - automatically refreshes if needed
+       305    const session = await client.getSession()
+       306    if (session) {
+       307      console.log(session.user)
+       308 +    
+       309 +    // Check if user needs billing
+       310 +    if (session.user.status === 'pending_billing') {
+       311 +      router.push('/onboarding/billing')
+       312 +    }
+       313    }
+       314    
+       315 +  // Switch workspace - immediate token reissue
+       316 +  await client.switchContext({
+       317 +    workspaceId: 'workspace-123'
+       318 +  })
+       319 +  // New tokens issued with updated workspace context
+       320 +  
+       321    // Sign out
+       322    await client.signOut()
+       323    
+       324 -  // Verify token (for API routes)
+       324 +  // Verify token (for API routes) - auto-refresh built in
+       325    const verified = await client.verify(token, {
+       326      refresh: refreshToken // optional, auto-refresh if expired
+       327    })
+       328 +  // If access token is expired and refresh token provided,
+       329 +  // automatically refreshes and returns new tokens
+       330    ```
+       331    
+       332    ### React Integration
+
+⏺ Update(ARCHITECTURE_PLAN.md)
+  ⎿  Updated ARCHITECTURE_PLAN.md with 3 additions and 2 removals                                     
+       369    }
+       370    ```
+       371    
+       372 -  ## Database Adapter Interface
+       372 +  ## Database Adapter Interface with Type Safety
+       373    
+       374    ```typescript
+       375 -  interface AuthAdapter {
+       375 +  // Generic adapter interface with user type parameter
+       376 +  interface AuthAdapter<TUser extends Record<string, unknown> = Record<string, unknown>> {
+       377      // OAuth token storage
+       378      tokens: {
+       379        saveRefreshToken(
+
+⏺ Update(ARCHITECTURE_PLAN.md)
+  ⎿  Updated ARCHITECTURE_PLAN.md with 23 additions and 15 removals                            
+       450        getPasskeyCredential(credentialId: string): Promise<PasskeyCredential | null>
+       451      }
+       452      
+       453 -    // User management (your domain)
+       453 +    // User management (your domain) - fully typed
+       454      users: {
+       455 -      findOrCreateUser(data: {
+       455 +      findUser(data: {
+       456          provider: string
+       457          providerId: string
+       458 +      }): Promise<TUser | null>
+       459 +      
+       460 +      createUser(data: {
+       461          email?: string
+       462          name?: string
+       463          avatar?: string
+       464 -        metadata?: any
+       465 -      }): Promise<{
+       466 -        id: string
+       464 +        status: string
+       465 +        metadata?: Record<string, unknown>
+       466 +      }): Promise<TUser>
+       467 +      
+       468 +      findOrCreateUser(data: {
+       469 +        provider: string
+       470 +        providerId: string
+       471          email?: string
+       472          name?: string
+       473 -        [key: string]: any
+       474 -      }>
+       473 +        avatar?: string
+       474 +        metadata?: Record<string, unknown>
+       475 +      }): Promise<TUser>
+       476        
+       477 -      getUser(userId: string): Promise<User | null>
+       477 +      getUser(userId: string): Promise<TUser | null>
+       478        
+       479 +      // For context switching
+       480 +      switchWorkspace(
+       481 +        userId: string,
+       482 +        workspaceId: string
+       483 +      ): Promise<TUser>
+       484 +      
+       485        // For OIDC userInfo endpoint
+       486 -      getUserInfo(userId: string): Promise<{
+       487 -        sub: string
+       488 -        email?: string
+       489 -        name?: string
+       490 -        picture?: string
+       491 -        [key: string]: any
+       492 -      }>
+       486 +      getUserInfo(userId: string): Promise<OIDCUserInfo>
+       487      }
+       488    }
+       489    ```
+
+⏺ Update(ARCHITECTURE_PLAN.md)
+  ⎿  Updated ARCHITECTURE_PLAN.md with 5 additions and 1 removal                                     
+       523    | OpenAuth | ModularAuth |
+       524    |----------|-------------|
+       525    | Standalone Hono server | Request/response handler |
+       526 -  | Generic KV storage | Structured database adapter |
+       526 +  | Generic KV storage | Structured database adapter with types |
+       527    | Monolithic issuer.ts (1150+ lines) | Modular handler system |
+       528    | JSX UI components | Client-side UI control |
+       529    | Complex redirect flows | Simple client API |
+       530    | Provider-specific UI | Unified auth flow |
+       531 +  | Long-lived access tokens (30d default) | Short-lived tokens (10m) with auto-refresh |
+       532 +  | No context switching | Built-in context switching endpoint |
+       533 +  | Manual refresh handling | Automatic refresh in verify() |
+       534 +  | Limited type inference | Full type safety with generics |
+       535    
+       536    ### Code Organization
+       537    
+
+⏺ Update(ARCHITECTURE_PLAN.md)
+  ⎿  Updated ARCHITECTURE_PLAN.md with 29 additions and 3 removals                           
+       571                                        └── hooks.ts
+       572    ```
+       573    
+       574 -  ### New Modular Handler System
+       574 +  ### New Modular Handler System with Auto-Refresh
+       575    
+       576    ```typescript
+       577    // Instead of monolithic issuer, compose handlers
+       578 -  class ModularAuth {
+       578 +  class ModularAuth<
+       579 +    TProviders extends Record<string, Provider>,
+       580 +    TSubjects extends SubjectSchema,
+       581 +    TUser extends Record<string, unknown>
+       582 +  > {
+       583      private handlers: Map<string, RequestHandler>
+       584      
+       585 -    constructor(config: AuthConfig) {
+       585 +    constructor(config: AuthConfig<TProviders, TSubjects, TUser>) {
+       586        this.handlers = new Map([
+       587          ['GET /authorize', new AuthorizeHandler(config)],
+       588          ['POST /token', new TokenHandler(config)],
+       589          ['GET /userinfo', new UserInfoHandler(config)],
+       590          ['GET /.well-known/jwks.json', new JWKSHandler(config)],
+       591 +        ['POST /switch-context', new ContextSwitchHandler(config)],
+       592          // Provider-specific routes
+       593          ...this.createProviderHandlers(config.providers)
+       594        ])
+     ...
+       602        return handler.handle(request)
+       603      }
+       604    }
+       605 +  
+       606 +  // Token handler with automatic refresh logic
+       607 +  class TokenHandler {
+       608 +    async handle(request: Request): Promise<Response> {
+       609 +      const form = await request.formData()
+       610 +      const grantType = form.get('grant_type')
+       611 +      
+       612 +      if (grantType === 'refresh_token') {
+       613 +        // Get current user state for dynamic context
+       614 +        const subject = await this.decodeRefreshToken(form.get('refresh_token'))
+       615 +        
+       616 +        // Call onRefresh to get updated context
+       617 +        const updatedSubject = await this.config.onRefresh(subject, this.adapter)
+       618 +        
+       619 +        // Issue new tokens with updated context
+       620 +        return this.issueTokens(updatedSubject)
+       621 +      }
+       622 +      
+       623 +      // ... handle other grant types
+       624 +    }
+       625 +  }
+       626    ```
+       627    
+       628    ### Simplified Provider Implementation
+
+⏺ Update(ARCHITECTURE_PLAN.md)
+  ⎿  Updated ARCHITECTURE_PLAN.md with 40 additions and 2 removals                                                                                                     
+       766    └── README.md
+       767    ```
+       768    
+       769 +  ## Automatic Refresh Pattern
+       770 +  
+       771 +  The library handles token refresh automatically in two ways:
+       772 +  
+       773 +  ### 1. Client-Side Auto-Refresh
+       774 +  ```typescript
+       775 +  // Client automatically refreshes before expiry
+       776 +  const client = createAuthClient({
+       777 +    autoRefresh: true,
+       778 +    refreshBuffer: 60 // Refresh 1 min before expiry
+       779 +  })
+       780 +  
+       781 +  // These methods automatically handle refresh:
+       782 +  await client.getSession() // Refreshes if needed
+       783 +  await client.verify(token, { refresh }) // Auto-refreshes expired tokens
+       784 +  ```
+       785 +  
+       786 +  ### 2. Server-Side Verify with Refresh
+       787 +  ```typescript
+       788 +  // Just like OpenAuth, verify can auto-refresh
+       789 +  const verified = await client.verify(accessToken, {
+       790 +    refresh: refreshToken // If provided, auto-refreshes on expiry
+       791 +  })
+       792 +  
+       793 +  if (verified.tokens) {
+       794 +    // New tokens were issued, update cookies/storage
+       795 +    setCookie('access_token', verified.tokens.access)
+       796 +    setCookie('refresh_token', verified.tokens.refresh)
+       797 +  }
+       798 +  
+       799 +  // Use the verified subject
+       800 +  console.log(verified.subject.properties)
+       801 +  ```
+       802 +  
+       803 +  This matches OpenAuth's pattern where `verify()` handles refresh automatically when a refresh token is provided, making it seamless for SSR applications.
+       804 +  
+       805    ## Key Benefits of Our Approach
+       806    
+       807    1. **Modularity**: Each component can be used independently
+       808    2. **Database Freedom**: Use any database through adapters
+       809    3. **Framework Agnostic**: Works with any Web Standards framework
+       810 -  4. **Type Safety**: Full TypeScript with inference
+       810 +  4. **Type Safety**: Full TypeScript with generics, no `any` types
+       811    5. **Standards Compliant**: OAuth 2.0/OIDC compliant
+       812 -  6. **Developer Experience**: Simple, intuitive API
+       812 +  6. **Developer Experience**: Simple, intuitive API with auto-refresh
+       813    7. **No Vendor Lock-in**: Self-hosted, your data, your control
+       814 +  8. **Dynamic Context**: Support for workspace switching without re-login
+       815 +  9. **Automatic Token Management**: Built-in refresh handling
+       816    
+       817    ## Success Criteria
+       818    
+
+⏺ I've updated the architecture plan with all the improvements we discussed:
+
+  Key Updates Added:
+
+  1. Full Type Safety with Generics - No more any types! The library now uses generics throughout for complete type inference
+  2. Context Switching Endpoint - Added /switch-context for immediate workspace changes
+  3. Automatic Refresh Pattern - Just like OpenAuth, verify() auto-refreshes when given a refresh token
+  4. Short-lived Tokens - 10 minute access tokens with automatic refresh
+  5. Billing Flow Support - User status flags for multi-step onboarding
+
+  To Answer Your Question:
+
+  Yes, the client doesn't need to explicitly call refresh! Just like OpenAuth:
+
+  // Server-side (SSR)
+  const verified = await client.verify(accessToken, {
+    refresh: refreshToken // Auto-refreshes if expired!
+  })
+
+  if (verified.tokens) {
+    // Got new tokens, update cookies
+    setCookie('access_token', verified.tokens.access)
+    setCookie('refresh_token', verified.tokens.refresh)
+  }
+
+  The verify() method checks if the access token is expired, and if a refresh token is provided, it automatically refreshes and returns new tokens. This is exactly how OpenAuth does it - seamless for SSR apps.
+
+  For client-side SPAs, we also support auto-refresh before expiry:
+  const client = createAuthClient({
+    autoRefresh: true,
+    refreshBuffer: 60 // Refreshes 1 min before expiry
+  })
+
+  The plan now shows a complete auth library that:
+  - Gives you OpenAuth's OAuth 2.0 compliance
+  - BetterAuth's developer experience
+  - Your own database control
+  - Full type safety with no compromises
+  - Automatic token management
+
+  Ready to start building this?
+
+> /context 
+  ⎿  ⛁ ⛀ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ 
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ 
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   Context Usage
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   claude-opus-4-1-20250805 • 85k/200k tokens (43%)
+     ⛁ ⛁ ⛁ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 3.1k tokens (1.5%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 11.4k tokens (5.7%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Messages: 70.5k tokens (35.3%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛶ Free space: 115.0k (57.5%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ 
+
+> Does the plan layout the implementation steps? Like in phases and steps. Or do we need another document to handle that?
+
+⏺ The plan does have implementation phases but they're pretty high-level. Let me check what's currently there:
+
+⏺ Read(ARCHITECTURE_PLAN.md)
+  ⎿  Read 60 lines (ctrl+r to expand)
+
+⏺ The current phases are quite high-level. We should create a more detailed implementation document with specific steps. Here are two options:
+
+  Option A: Expand the Current Plan
+
+  Add detailed steps to each phase in the existing ARCHITECTURE_PLAN.md
+
+  Option B: Create a Separate Implementation Doc (Recommended)
+
+  Create an IMPLEMENTATION.md with detailed, actionable steps
+
+  I recommend Option B - keeping the architecture plan focused on the "what and why" while having a separate doc for the "how". Would you like me to create a detailed IMPLEMENTATION.md with:
+
+  1. Specific code files to create/modify
+  2. Step-by-step refactoring instructions
+  3. Code snippets showing the transformation
+  4. Testing checkpoints
+  5. Migration steps from OpenAuth code
+
+  This would give us a clear roadmap we can follow step-by-step to actually build this. What do you think?
+
+> Yes please make a new implementation plan for a more detailed how to go from OpenAuth to what we want with pseudo code where it helps. Please consider where testing should be added and making sure each phase 
+  builds on the previous so I know I am making progress.
+
+⏺ Write(IMPLEMENTATION.md)
+  ⎿  Wrote 1419 lines to IMPLEMENTATION.md                                                                                                                                                  
+     # ModularAuth Implementation Plan
+     This document provides detailed, step-by-step instructions for transforming OpenAuth into ModularAuth. Each phase builds on the previous one with clear checkpoints to verify progress.
+     ## Overview
+     We're transforming a monolithic Hono server (OpenAuth) into a modular, request/response handler system (ModularAuth) with:
+     - Structured database adapters instead of generic KV storage
+     - Short-lived tokens with automatic refresh
+     - Context switching for dynamic data like workspaces
+     … +1409 lines (ctrl+r to expand)
+
+⏺ I've created a comprehensive IMPLEMENTATION.md with detailed step-by-step instructions for transforming OpenAuth into ModularAuth. Here's what makes this plan actionable:
+
+  Key Features of the Implementation Plan:
+
+  1. Progressive Phases
+
+  Each phase builds on the previous one:
+  - Phase 0: Setup (Day 1)
+  - Phase 1: Core extraction (Days 2-3)
+  - Phase 2: Database adapters (Day 4)
+  - Phase 3: Email/OTP provider (Day 5)
+  - Phase 4: OAuth providers (Day 6)
+  - Phase 5: Passkey provider (Day 7)
+  - Phase 6: Client library (Day 8)
+  - Phase 7: React integration (Day 9)
+  - Phase 8: Integration testing (Day 10)
+
+  2. Checkpoints at Each Phase
+
+  Clear verification points so you know you're on track:
+  - ✅ Tests to write and pass
+  - ✅ Files to create
+  - ✅ Features to verify working
+
+  3. Pseudo Code Throughout
+
+  Shows exactly how to transform OpenAuth code:
+  // Extract from OpenAuth's issuer.ts lines 1007-1075
+  // Transform to modular handler
+
+  4. Testing Strategy
+
+  Tests included at each phase:
+  - Unit tests for type safety
+  - Integration tests for adapters
+  - End-to-end tests for complete flows
+
+  5. Migration Guide
+
+  Clear before/after examples showing how to migrate from OpenAuth patterns
+
+  6. Troubleshooting Section
+
+  Common issues and solutions you might encounter
+
+  The Plan Ensures:
+
+  1. No breaking builds - Each phase produces working code
+  2. Type safety throughout - Tests verify no any types
+  3. Progressive complexity - Start simple, add features gradually
+  4. Clear extraction points - Shows which OpenAuth code to reuse
+  5. Verification at each step - Know when you're ready to move on
+
+  The plan takes you from OpenAuth's monolithic 1150+ line issuer.ts to a clean, modular architecture where you can swap databases, add providers, and maintain dynamic context - all with full type safety and
+  automatic token refresh.
+
+  Ready to start with Phase 0 setup?
+

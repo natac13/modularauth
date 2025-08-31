@@ -1,0 +1,32 @@
+{
+  "name": "@modularauth/core",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "bun run build:clean && bun run build:tsc",
+    "build:clean": "rm -rf dist",
+    "build:tsc": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "jose": "^5.9.6",
+    "cookie": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/cookie": "^0.6.0",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "@standard-schema/spec": "^1.0.0-beta.4"
+  }
+}
