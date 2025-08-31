@@ -2,14 +2,9 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { serveStatic } from "hono/bun"
 import { createAuth, MemoryStorage } from "@modularauth/modularauth"
+import { OTPProvider } from "@modularauth/modularauth/providers/otp"
 import { object, string, optional } from "valibot"
-
-// Define user type (will be used when we add providers)
-// interface User {
-//   id: string
-//   email: string
-//   name?: string
-// }
+import * as fs from "fs/promises"
 
 // Define subjects schema
 const subjects = {
@@ -29,12 +24,32 @@ app.use("*", cors())
 // Serve static files
 app.use("/", serveStatic({ root: "./public" }))
 
-// Initialize auth
+// Initialize auth with OTP provider
+const storage = MemoryStorage()
+
 const auth = createAuth({
   issuer: "http://localhost:3000",
-  storage: MemoryStorage(),
+  storage,
   providers: {
-    // We'll add providers later
+    otp: new OTPProvider({
+      storage, // Pass storage to provider
+      async sendCode(claims, code) {
+        // For testing, write to a JSON file
+        const codesFile = "./test-codes.json"
+        let codes = {}
+        try {
+          const existing = await fs.readFile(codesFile, "utf-8")
+          codes = JSON.parse(existing)
+        } catch {
+          // File doesn't exist yet
+        }
+        if (claims.email) {
+          codes[claims.email] = code
+        }
+        await fs.writeFile(codesFile, JSON.stringify(codes, null, 2))
+        console.log(`📧 Code for ${claims.email}: ${code}`)
+      },
+    }),
   },
   subjects,
   ttl: {
@@ -42,8 +57,18 @@ const auth = createAuth({
     refresh: 2592000, // 30 days
   },
   
-  async onSuccess(ctx, _provider, data) {
-    // For now, just create a simple user
+  async onSuccess(ctx, provider, data) {
+    // Handle OTP provider response
+    if (provider === "otp" && data.claims) {
+      const userId = crypto.randomUUID()
+      return ctx.subject("user", userId, {
+        userId,
+        email: data.claims.email,
+        name: undefined,
+      })
+    }
+    
+    // Default handling for other providers
     const userId = data.id || crypto.randomUUID()
     
     return ctx.subject("user", userId, {

@@ -71,7 +71,7 @@ export async function signingKeys(storage: StorageAdapter): Promise<KeyPair[]> {
   const scanner = Storage.scan<SerializedKeyPair>(storage, ["signing:key"])
   
   for await (const [_key, value] of scanner) {
-    // Import the serialized keys back to KeyLike format
+    // Import the serialized keys back to KeyLike format (OpenAuth exact pattern)
     const publicKey = await importSPKI(value.publicKey, value.alg, {
       extractable: true,
     })

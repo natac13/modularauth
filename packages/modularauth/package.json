@@ -9,6 +9,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./providers/email-otp": {
+      "import": "./dist/providers/email-otp.js",
+      "types": "./dist/providers/email-otp.d.ts"
     }
   },
   "scripts": {
@@ -16,7 +20,7 @@
     "build:clean": "rm -rf dist",
     "build:tsc": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage"
   },

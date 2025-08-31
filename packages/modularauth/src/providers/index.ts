@@ -1,0 +1,1 @@
+export { OTPProvider, type OTPConfig } from './otp.js'

@@ -14,7 +14,7 @@ export interface StorageAdapter {
 // Provider types
 export interface Provider<TConfig = unknown, TUserData = unknown> {
   type: "oauth" | "otp" | "passkey"
-  init(config: TConfig): ProviderHandlers<TUserData>
+  init(config?: TConfig): ProviderHandlers<TUserData>
 }
 
 export interface ProviderHandlers<TUserData = unknown> {
@@ -90,6 +90,19 @@ export interface JWTPayload {
   nbf?: number
   jti?: string
   [key: string]: any
+}
+
+// Authorization state for OAuth flow
+export interface AuthorizationState {
+  response_type: string
+  client_id?: string
+  redirect_uri: string
+  state?: string
+  code_challenge?: string
+  code_challenge_method?: string
+  provider: string
+  created: number
+  expires: number
 }
 
 // Token response types
